@@ -235,6 +235,16 @@ local function run()
   assert(panel.mode == "tab", "layout did not toggle to tab mode")
   assert(panel.detail_win and vim.api.nvim_win_is_valid(panel.detail_win),
     "wide tab layout did not create the context rail")
+  if vim.env.UX_CHROME_ROOT then
+    local panes = require('ux_chrome.panes')
+    assert(panes.inspect(panel.win).role == 'navigation')
+    assert(panes.inspect(panel.detail_win).role == 'context')
+    local tx = assert(require('ux_foundation').begin_transaction())
+    assert(tx:stage('ux.chrome.panes/context/wrap/value', false))
+    assert(vim.wo[panel.detail_win].wrap == false)
+    assert(tx:revert()); assert(tx:commit())
+    assert(vim.wo[panel.detail_win].wrap == true)
+  end
   vim.api.nvim_win_set_cursor(panel.win, { 1, 0 })
   panel.update_detail()
   assert_contains(table.concat(vim.api.nvim_buf_get_lines(panel.detail_buf, 0, -1, false), "\n"),

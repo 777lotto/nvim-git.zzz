@@ -417,3 +417,10 @@ Run `:help git-panel` for the complete in-editor reference.
 ## License
 
 git-panel.nvim is available under the [MIT License](LICENSE).
+# Shared pane presentation
+
+GitPanel optionally uses UX Chrome's `ux_chrome.panes` API for navigation and
+context windows. Wrapping, gutters, selection, and pane colors are editable
+through Foundation/Styling. Markdown context uses Chrome's renderer integration;
+changing content type replaces the context scratch buffer to release the old
+renderer. Without the API, GitPanel retains its native presentation.
