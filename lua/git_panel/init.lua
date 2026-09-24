@@ -6,6 +6,16 @@ local local_model = require('git_panel.model')
 local signed_merge = require('git_panel.signed_merge')
 local connections = require('git_panel.connections')
 
+local function attach_pane(win, role, content)
+  local loaded, panes = pcall(require, 'ux_chrome.panes')
+  if not loaded then return false end
+  local ok, err = pcall(panes.attach, {
+    id = 'git.panel.' .. role, role = role, content = content, window = win,
+  })
+  if not ok then vim.notify('GitPanel Chrome pane: ' .. tostring(err), vim.log.levels.WARN) end
+  return ok
+end
+
 local VIEWS = {
   { id = 'work', label = 'Changes' },
   { id = 'history', label = 'History' },
@@ -823,11 +833,21 @@ end
 
 local function set_detail(lines, filetype)
   if not detail_is_valid() then return end
+  local old_type = api.nvim_get_option_value('filetype', { buf = M.detail_buf })
+  if old_type ~= (filetype or 'gitpaneldetail') then
+    local old = M.detail_buf
+    M.detail_buf = nil
+    api.nvim_win_set_buf(M.detail_win, ensure_detail_buf())
+    api.nvim_buf_delete(old, { force = true })
+    pcall(api.nvim_buf_set_name, M.detail_buf, 'gitpanel://context')
+  end
   lines = lines or {}
   api.nvim_set_option_value('modifiable', true, { buf = M.detail_buf })
   api.nvim_buf_set_lines(M.detail_buf, 0, -1, false, lines)
   api.nvim_set_option_value('modifiable', false, { buf = M.detail_buf })
   api.nvim_set_option_value('filetype', filetype or 'gitpaneldetail', { buf = M.detail_buf })
+  attach_pane(M.detail_win, 'context', filetype == 'markdown' and 'markdown'
+    or filetype == 'diff' and 'diff' or 'plaintext')
 end
 
 local function detail_overview()
@@ -1107,11 +1127,13 @@ function M.refresh(opts)
   end)
 end
 
-local function set_win_opts(win, fixed_width)
+local function set_win_opts(win, fixed_width, role)
   local w = function(n, v) api.nvim_set_option_value(n, v, { win = win }) end
+  w('winfixwidth', fixed_width == true)
+  if attach_pane(win, role or 'navigation', role == 'context' and 'plaintext' or 'list') then return true end
   w('number', false); w('relativenumber', false); w('signcolumn', 'no')
   w('cursorline', true); w('wrap', false); w('list', false); w('foldcolumn', '0')
-  w('winfixwidth', fixed_width == true)
+  return false
 end
 
 local function ensure_buf()
@@ -1155,9 +1177,10 @@ local function ensure_detail_layout()
     vim.cmd('rightbelow vsplit')
     M.detail_win = api.nvim_get_current_win()
     api.nvim_win_set_buf(M.detail_win, ensure_detail_buf())
-    set_win_opts(M.detail_win, false)
-    api.nvim_set_option_value('cursorline', false, { win = M.detail_win })
-    api.nvim_set_option_value('wrap', true, { win = M.detail_win })
+    if not set_win_opts(M.detail_win, false, 'context') then
+      api.nvim_set_option_value('cursorline', false, { win = M.detail_win })
+      api.nvim_set_option_value('wrap', true, { win = M.detail_win })
+    end
   end
   local target = math.max(DETAIL_MIN_WIDTH, math.floor(vim.o.columns * 0.35))
   pcall(api.nvim_win_set_width, M.detail_win, target)
