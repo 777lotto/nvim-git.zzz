@@ -255,6 +255,11 @@ local function render(m)
   local lines, map, hls = {}, {}, {}
   local panel_width = (M.win and api.nvim_win_is_valid(M.win))
       and api.nvim_win_get_width(M.win) or PANEL_WIDTH
+  local loaded, components = pcall(require, 'ux_chrome.components')
+  local presentation = loaded and components.context({
+    id = 'git.panel.navigation', width = panel_width, window = M.win,
+    redraw = function() M.refresh({ skip_remote_fetch = true, reuse_model = true, presentation_only = true }) end,
+  }) or nil
   local function emit(text, item, hl)
     lines[#lines + 1] = text
     local lnum = #lines
@@ -269,6 +274,7 @@ local function render(m)
   local function chevron(id) return folded(id) and '▸' or '▾' end
   local function row_limit() return math.max(24, panel_width - 3) end
   local function shorten(text, limit)
+    if presentation then return components.truncate(text, limit, presentation.values.truncation) end
     text = tostring(text or '')
     if fn.strdisplaywidth(text) <= limit then return text end
     local chars = fn.strchars(text)
@@ -371,6 +377,13 @@ local function render(m)
     -- an empty section is one dimmed line: present for orientation, quiet
     -- enough that populated sections carry the eye
     local empty = count == 0 or count == '0'
+    if presentation then
+      local text, style = presentation:format({ kind = 'header', prefix = chevron(id), text = title, count = count,
+        highlight = empty and 'UXChromeComponentEmpty' or nil })
+      emit(text, head_item, style.group)
+      if not folded(id) then render_body() end
+      return
+    end
     local h = emit(' ' .. chevron(id) .. ' ' .. title ..
       (count ~= nil and ('  (' .. count .. ')') or ''), head_item,
       empty and 'GitPanelHint' or 'GitPanelSection')
@@ -378,7 +391,10 @@ local function render(m)
     if not folded(id) then render_body() end
   end
   local function empty_row(text)
-    emit('     ' .. text, nil, 'GitPanelHint')
+    if presentation then
+      local line, style = presentation:format({ kind = 'empty', text = text })
+      emit(line, nil, style.group)
+    else emit('     ' .. text, nil, 'GitPanelHint') end
   end
   -- a file/change row with a coloured status letter
   local function file_row(rec, section_id, staged)
@@ -386,16 +402,22 @@ local function render(m)
     local disp = rec.path
     if rec.orig then disp = rec.orig .. ' → ' .. rec.path end
     local prefix = '     ' .. letter .. '  '
-    local lnum = emit(shorten(prefix .. disp, row_limit()),
+    local text, style
+    if presentation then
+      text, style = presentation:format({ text = disp, prefix = letter })
+      prefix = text:sub(1, style.start)
+    else text = shorten(prefix .. disp, row_limit()) end
+    local lnum = emit(text,
       { kind = 'file', value = rec.path, orig = rec.orig, section = section_id,
         staged = staged, untracked = (letter == '?'),
-        conflict = (rec.badge == 'conflict') or nil, data = rec })
+        conflict = (rec.badge == 'conflict') or nil, data = rec }, style and style.group)
     local grp = 'GitPanelUnstaged'
     if rec.badge == 'conflict' or letter == 'U' then grp = 'GitPanelConflict'
     elseif letter == '?' then grp = 'GitPanelUntracked'
     elseif staged then grp = 'GitPanelStaged' end
-    span(lnum, 5, 6, grp)                       -- the status letter
-    if rec.orig then span(lnum, #prefix, #prefix + #rec.orig, 'GitPanelHint') end
+    local status_col = presentation and (presentation.values.padding + presentation.values.indent) or 5
+    if status_col < #text then span(lnum, status_col, math.min(status_col + #letter, #text), grp) end
+    if rec.orig then span(lnum, #prefix, math.min(#prefix + #rec.orig, #text), 'GitPanelHint') end
   end
   -- a conflicted-file row: <XY>  <path>   (both modified)
   local CONFLICT_KIND = {
@@ -1106,7 +1128,7 @@ function M.refresh(opts)
         end
       end
     end
-    if M.update_detail then M.update_detail() end
+    if not opts.presentation_only and M.update_detail then M.update_detail() end
   end
 
   if opts.reuse_model and M.model then return apply_model(M.model) end

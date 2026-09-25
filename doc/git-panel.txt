@@ -17,6 +17,12 @@ CONTENTS                                                   *git-panel-contents*
 Neovim 0.10 or newer and the Git executable on $PATH. Local Git views have no
 Lua or Neovim plugin dependencies.
 
+When installed, UX Chrome's optional ux_chrome.components API shares section
+headers, file rows, and empty states. Foundation settings under
+ux.chrome.components control padding, indentation, count spacing, and
+truncation; ux.chrome.component.git.panel.navigation supplies overrides.
+Presentation edits redraw cached data and preserve keyboard action targets.
+
 GitHub repository views optionally use authenticated GitHub CLI (gh), or curl
 with a token provider for private repositories. Curl can read public
 repositories anonymously. GitHub CLI also enables GitHub repository creation
