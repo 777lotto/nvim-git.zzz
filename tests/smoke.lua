@@ -244,6 +244,24 @@ local function run()
     assert(vim.wo[panel.detail_win].wrap == false)
     assert(tx:revert()); assert(tx:commit())
     assert(vim.wo[panel.detail_win].wrap == true)
+    panel.refresh({ skip_remote_fetch = true, reuse_model = true, presentation_only = true })
+    local before = vim.api.nvim_buf_get_lines(panel.buf, 0, -1, false)
+    local selected = vim.api.nvim_win_get_cursor(panel.win)
+    local model_generation, detail_generation = panel.model_generation, panel.detail_generation
+    local map = vim.deepcopy(panel.line_map)
+    local styles = assert(require('ux_foundation').begin_transaction())
+    assert(styles:stage('ux.chrome.components/navigation/padding/value', 4))
+    local saw_header = false
+    for _, line in ipairs(vim.api.nvim_buf_get_lines(panel.buf, 0, -1, false)) do
+      if line:match('^    [▸▾]') then saw_header = true end
+    end
+    assert(saw_header, 'shared padding did not reach Git sections')
+    assert(vim.deep_equal(panel.line_map, map), 'presentation changed Git action targets')
+    assert(vim.deep_equal(vim.api.nvim_win_get_cursor(panel.win), selected), 'presentation moved Git selection')
+    assert(panel.model_generation == model_generation, 'presentation refreshed Git state')
+    assert(panel.detail_generation == detail_generation, 'presentation refreshed Git detail')
+    assert(styles:revert()); assert(styles:commit())
+    assert(vim.deep_equal(vim.api.nvim_buf_get_lines(panel.buf, 0, -1, false), before))
   end
   vim.api.nvim_win_set_cursor(panel.win, { 1, 0 })
   panel.update_detail()

@@ -424,3 +424,9 @@ context windows. Wrapping, gutters, selection, and pane colors are editable
 through Foundation/Styling. Markdown context uses Chrome's renderer integration;
 changing content type replaces the context scratch buffer to release the old
 renderer. Without the API, GitPanel retains its native presentation.
+
+With `ux_chrome.components`, navigation section headers, file rows, and empty
+states share Chrome's padding, indentation, count spacing, and truncation.
+Foundation exposes shared settings under `ux.chrome.components` and overrides
+under `ux.chrome.component.git.panel.navigation`. Live edits render the cached
+model, preserve cursor/action targets, and do not refresh Git or GitHub data.

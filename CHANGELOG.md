@@ -12,6 +12,8 @@ Notable changes are recorded here. Releases follow semantic versioning.
 
 ### Added
 
+- Optional Chrome navigation components for sections, file rows, and empty states;
+  shared presentation edits redraw cached data and preserve action targets.
 - Responsive repository overview data, concurrent Git snapshots, contextual
   wide-layout details, and informative compact/empty states.
 - A stable-release hook that requests a focused, exact-commit GitPanel lock
